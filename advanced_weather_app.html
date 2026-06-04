@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Advanced Weather App</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:Segoe UI,Arial,sans-serif}
+body{
+min-height:100vh;
+display:flex;
+justify-content:center;
+align-items:center;
+background:linear-gradient(135deg,#4facfe,#00f2fe);
+transition:.4s;
+padding:20px;
+}
+body.dark{
+background:linear-gradient(135deg,#141e30,#243b55);
+color:#fff;
+}
+.card{
+width:420px;
+max-width:100%;
+backdrop-filter:blur(12px);
+background:rgba(255,255,255,.2);
+border-radius:20px;
+padding:25px;
+box-shadow:0 8px 32px rgba(0,0,0,.2);
+text-align:center;
+}
+.search{
+display:flex;
+gap:10px;
+margin:15px 0;
+}
+input{
+flex:1;padding:12px;border:none;border-radius:10px;
+}
+button{
+padding:12px 16px;border:none;border-radius:10px;cursor:pointer;
+}
+.weather-icon{font-size:60px;margin:10px 0;}
+.temp{font-size:48px;font-weight:bold}
+.info{margin-top:10px}
+.forecast{
+display:grid;
+grid-template-columns:repeat(5,1fr);
+gap:6px;
+margin-top:15px;
+font-size:12px;
+}
+.day{
+background:rgba(255,255,255,.2);
+padding:8px;
+border-radius:10px;
+}
+#loading{display:none;margin-top:10px}
+</style>
+</head>
+<body>
+<div class="card">
+<h1>🌤 Weather App Pro</h1>
+
+<div class="search">
+<input id="cityInput" placeholder="Enter city">
+<button onclick="getWeather()">Search</button>
+</div>
+
+<div style="display:flex;gap:10px;justify-content:center;">
+<button onclick="getLocation()">📍 My Location</button>
+<button onclick="toggleDarkMode()">🌙 Dark Mode</button>
+</div>
+
+<p id="loading">Loading...</p>
+
+<h3 id="dateTime"></h3>
+<div class="weather-icon" id="icon">🌤️</div>
+<h2 id="city">Search a city</h2>
+<div class="temp" id="temp">--°C</div>
+<p id="condition">Weather data will appear here</p>
+
+<div class="info">
+<p id="wind">Wind: -- km/h</p>
+</div>
+
+<div class="forecast" id="forecast"></div>
+</div>
+
+<script>
+
+function updateClock(){
+document.getElementById("dateTime").innerText =
+new Date().toLocaleString();
+}
+setInterval(updateClock,1000);
+updateClock();
+
+function toggleDarkMode(){
+document.body.classList.toggle("dark");
+}
+
+document.getElementById("cityInput").addEventListener("keypress",e=>{
+if(e.key==="Enter") getWeather();
+});
+
+function weatherEmoji(code){
+if(code===0) return "☀️";
+if(code<=3) return "⛅";
+if(code<=48) return "🌫️";
+if(code<=67) return "🌧️";
+if(code<=77) return "❄️";
+return "⛈️";
+}
+
+function weatherText(code){
+if(code===0) return "Clear Sky";
+if(code<=3) return "Partly Cloudy";
+if(code<=48) return "Fog";
+if(code<=67) return "Rain";
+if(code<=77) return "Snow";
+return "Thunderstorm";
+}
+
+async function fetchWeather(lat,lon,label){
+document.getElementById("loading").style.display="block";
+
+const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=temperature_2m_max,temperature_2m_min&timezone=auto`;
+
+const res=await fetch(url);
+const data=await res.json();
+
+document.getElementById("city").innerText=label;
+document.getElementById("temp").innerText=data.current_weather.temperature+"°C";
+document.getElementById("wind").innerText="Wind: "+data.current_weather.windspeed+" km/h";
+document.getElementById("condition").innerText=weatherText(data.current_weather.weathercode);
+document.getElementById("icon").innerText=weatherEmoji(data.current_weather.weathercode);
+
+const forecast=document.getElementById("forecast");
+forecast.innerHTML="";
+
+for(let i=0;i<5;i++){
+forecast.innerHTML+=`
+<div class="day">
+<b>${data.daily.time[i].slice(5)}</b><br>
+↑${Math.round(data.daily.temperature_2m_max[i])}°<br>
+↓${Math.round(data.daily.temperature_2m_min[i])}°
+</div>`;
+}
+
+document.getElementById("loading").style.display="none";
+}
+
+async function getWeather(){
+const city=document.getElementById("cityInput").value.trim();
+if(!city){alert("Enter a city");return;}
+
+try{
+const geo=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${city}&count=1`);
+const geoData=await geo.json();
+
+if(!geoData.results){
+alert("City not found");
+return;
+}
+
+const place=geoData.results[0];
+fetchWeather(place.latitude,place.longitude,place.name+", "+place.country);
+
+}catch(err){
+alert("Error fetching weather");
+console.error(err);
+}
+}
+
+function getLocation(){
+if(!navigator.geolocation){
+alert("Geolocation not supported");
+return;
+}
+
+navigator.geolocation.getCurrentPosition(pos=>{
+fetchWeather(
+pos.coords.latitude,
+pos.coords.longitude,
+"My Location"
+);
+});
+}
+</script>
+</body>
+</html>
